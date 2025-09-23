@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Optional
 
-from flask import request
+from flask import has_request_context, request
 
 from CTFd.exceptions.challenges import (
     ChallengeCreateException,
@@ -57,6 +57,15 @@ DEFAULT_TIMEOUT = 10
 
 logger = logging.getLogger("plugins.ssh_ping_challenges")
 
+def resolve_current_pod_id() -> Optional[int]:
+    """Resolve the active pod identifier for the current request context."""
+
+    if not has_request_context():
+        return None
+    team = get_current_team()
+    if team is None:
+        return None
+    return lab_get_pod_id(team)
 
 @dataclass
 class BastionConfig:
@@ -106,6 +115,16 @@ class SshPingChallengeModel(Challenges):
     def resolved_bastion_name(self) -> Optional[str]:
         return resolve_bastion_display_name(self)
 
+    @property
+    def html(self):
+        from CTFd.utils.config.pages import build_markdown
+        from CTFd.utils.helpers import markup
+
+        description = self.description or ""
+        pod_id = resolve_current_pod_id()
+        if pod_id is not None:
+            description = substitute_pod_tokens(description, pod_id)
+        return markup(build_markdown(description))
 
 def resolve_target_host(challenge: Challenges) -> Optional[str]:
     pod_id = _resolve_pod_id()
