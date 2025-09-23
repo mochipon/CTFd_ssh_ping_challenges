@@ -1,0 +1,50 @@
+{% extends "challenge.html" %}
+{% set resolved_target = challenge.resolved_target %}
+{% set resolved_bastion = challenge.resolved_bastion_name %}
+{% set curr_lang = get_locale() %}
+
+{% block description %}
+<script>const ctxLocale="{{ curr_lang }}";</script>
+<div
+  id="ssh-ping-target"
+  class="alert alert-info"
+  role="alert"
+  data-has-target="{{ 'true' if resolved_target else 'false' }}"
+  data-resolved="{{ resolved_target or '' }}"
+  data-bastion="{{ resolved_bastion or '' }}"
+>
+  {% if resolved_target %}
+    This challenge will attempt to reach {{ resolved_target }}.
+  {% else %}
+    No pod has been assigned to your team yet.
+  {% endif %}
+</div>
+{{ super() }}
+{% endblock %}
+
+{% block input %}
+  <input
+    id="challenge-id" class="challenge-id" type="hidden"
+    value="{{ challenge.id }}"
+  >
+  <input
+    id="challenge-input" class="challenge-input form-control"
+    type="text" name="submission"
+    data-has-target="{{ 'true' if resolved_target else 'false' }}"
+    data-resolved="{{ resolved_target or '' }}"
+    data-bastion="{{ resolved_bastion or '' }}"
+    value="Attempting ping to {{ resolved_target or 'unassigned host' }}"
+    disabled
+  >
+{% endblock %}
+
+{% block submit %}
+  <button
+      id="challenge-submit"
+      class="challenge-submit btn btn-outline-secondary w-100 h-100" type="submit"
+      @click.debounce.500ms="submitChallenge()"
+      data-i18n="button"
+  >
+    Run SSH Ping
+  </button>
+{% endblock %}
