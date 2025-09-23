@@ -13,7 +13,16 @@
 {% endblock %}
 
 {% block message %}
-{{ super() }}
+<div class="form-group">
+    <label>
+        Message:<br>
+        <small class="form-text text-muted">
+            Use markdown to describe the challenge. Include <code>:pod_id:</code> to insert the
+            assigned pod number for each team.
+        </small>
+    </label>
+    <textarea id="new-desc-editor" class="form-control markdown" name="description" rows="10"></textarea>
+</div>
 {% endblock %}
 
 {% block value %}

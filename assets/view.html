@@ -1,10 +1,8 @@
 {% extends "challenge.html" %}
 {% set resolved_target = challenge.resolved_target %}
 {% set resolved_bastion = challenge.resolved_bastion_name %}
-{% set curr_lang = get_locale() %}
 
 {% block description %}
-<script>const ctxLocale="{{ curr_lang }}";</script>
 <div
   id="ssh-ping-target"
   class="alert alert-info"
