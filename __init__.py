@@ -1,10 +1,11 @@
+"""SSH Ping Challenges Plugin for CTFd"""
+
 from __future__ import annotations
 
 import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Dict, Optional
 
 from flask import has_request_context, request
 
@@ -20,16 +21,20 @@ from CTFd.plugins.challenges import (
     ChallengeResponse,
 )
 from CTFd.plugins.migrations import upgrade
+from CTFd.utils.config.pages import build_markdown
+from CTFd.utils.helpers import markup
 from CTFd.utils.user import get_current_team, is_admin
 
 try:
     from CTFd.plugins.CTFd_lab_pods import (
         get_team_pod_id as lab_get_pod_id,
+    )
+    from CTFd.plugins.CTFd_lab_pods import (
         substitute_pod_tokens,
     )
 except ImportError as exc:  # pragma: no cover
     raise RuntimeError(
-        "ssh_ping_challenges requires the lab_pods plugin to be installed"
+        "ssh_ping_challenges requires the lab_pods plugin to be installed",
     ) from exc
 
 try:
@@ -40,7 +45,7 @@ try:
     )
 except ImportError as exc:  # pragma: no cover
     raise RuntimeError(
-        "The ssh_ping_challenges plugin requires the netmiko package: pip install netmiko"
+        "The ssh_ping_challenges plugin requires the netmiko package: pip install netmiko",
     ) from exc
 
 # Cisco IOS XE emits either "!!!!!"/".!!!!" progress indicators or a summary line.
@@ -57,9 +62,9 @@ DEFAULT_TIMEOUT = 10
 
 logger = logging.getLogger("plugins.ssh_ping_challenges")
 
-def resolve_current_pod_id() -> Optional[int]:
-    """Resolve the active pod identifier for the current request context."""
 
+def resolve_current_pod_id() -> int | None:
+    """Resolve the active pod identifier for the current request context."""
     if not has_request_context():
         return None
     team = get_current_team()
@@ -67,13 +72,14 @@ def resolve_current_pod_id() -> Optional[int]:
         return None
     return lab_get_pod_id(team)
 
+
 @dataclass
 class BastionConfig:
     host: str
     display_name: str
     username: str
     password: str
-    enable_password: Optional[str]
+    enable_password: str | None
     command: str
 
 
@@ -82,7 +88,9 @@ class SshPingChallengeModel(Challenges):
     __mapper_args__ = {"polymorphic_identity": "ssh_ping"}
 
     id = db.Column(
-        db.Integer, db.ForeignKey("challenges.id", ondelete="CASCADE"), primary_key=True
+        db.Integer,
+        db.ForeignKey("challenges.id", ondelete="CASCADE"),
+        primary_key=True,
     )
     bastion_host_template = db.Column(db.Text, nullable=False, default="")
     bastion_username_template = db.Column(db.Text, nullable=False, default="")
@@ -91,12 +99,14 @@ class SshPingChallengeModel(Challenges):
     bastion_display_name_template = db.Column(db.Text, nullable=False, default="")
     per_pod_bastion_overrides = db.Column(db.Text, nullable=False, default="")
     ping_command_template = db.Column(
-        db.Text, nullable=False, default=DEFAULT_PING_COMMAND
+        db.Text,
+        nullable=False,
+        default=DEFAULT_PING_COMMAND,
     )
     ssh_timeout = db.Column(db.Integer, nullable=False, default=DEFAULT_TIMEOUT)
 
     @property
-    def bastion_overrides(self) -> Dict[int, Dict[str, str]]:
+    def bastion_overrides(self) -> dict[int, dict[str, str]]:
         return _safe_load_overrides(self.per_pod_bastion_overrides)
 
     @property
@@ -108,25 +118,23 @@ class SshPingChallengeModel(Challenges):
         return json.dumps(serializable, indent=2, sort_keys=True)
 
     @property
-    def resolved_target(self) -> Optional[str]:
+    def resolved_target(self) -> str | None:
         return resolve_target_host(self)
 
     @property
-    def resolved_bastion_name(self) -> Optional[str]:
+    def resolved_bastion_name(self) -> str | None:
         return resolve_bastion_display_name(self)
 
     @property
     def html(self):
-        from CTFd.utils.config.pages import build_markdown
-        from CTFd.utils.helpers import markup
-
         description = self.description or ""
         pod_id = resolve_current_pod_id()
         if pod_id is not None:
             description = substitute_pod_tokens(description, pod_id)
         return markup(build_markdown(description))
 
-def resolve_target_host(challenge: Challenges) -> Optional[str]:
+
+def resolve_target_host(challenge: Challenges) -> str | None:
     pod_id = _resolve_pod_id()
     if pod_id is None:
         return None
@@ -138,14 +146,15 @@ def resolve_target_host(challenge: Challenges) -> Optional[str]:
         return None
     return substitute_pod_tokens(template, pod_id)
 
-def resolve_bastion_display_name(challenge: Challenges) -> Optional[str]:
+
+def resolve_bastion_display_name(challenge: Challenges) -> str | None:
     pod_id = _resolve_pod_id()
     if pod_id is None:
         return None
 
     overrides = challenge.bastion_overrides.get(pod_id, {})
     template = _normalize_field(
-        overrides.get("display_name") or challenge.bastion_display_name_template
+        overrides.get("display_name") or challenge.bastion_display_name_template,
     )
     if not template:
         template = _normalize_field(challenge.bastion_host_template)
@@ -154,7 +163,7 @@ def resolve_bastion_display_name(challenge: Challenges) -> Optional[str]:
     return substitute_pod_tokens(template, pod_id)
 
 
-def _resolve_pod_id() -> Optional[int]:
+def _resolve_pod_id() -> int | None:
     team = get_current_team()
     pod_id = lab_get_pod_id(team) if team else None
     if pod_id is None and is_admin():
@@ -180,7 +189,7 @@ def _get_target_template(challenge: Challenges) -> str:
     return (flag.content or "").strip()
 
 
-def _get_pod_specific_template(challenge: Challenges, pod_id: int) -> Optional[str]:
+def _get_pod_specific_template(challenge: Challenges, pod_id: int) -> str | None:
     for flag in challenge.flags:
         print(f"!!! {flag.type} {flag.data} {flag.content}")
         if flag.type != "pod_specific":
@@ -201,7 +210,7 @@ def _get_pod_specific_template(challenge: Challenges, pod_id: int) -> Optional[s
     return None
 
 
-def _safe_load_overrides(raw_text: Optional[str]) -> Dict[int, Dict[str, str]]:
+def _safe_load_overrides(raw_text: str | None) -> dict[int, dict[str, str]]:
     if not raw_text:
         return {}
     try:
@@ -213,7 +222,7 @@ def _safe_load_overrides(raw_text: Optional[str]) -> Dict[int, Dict[str, str]]:
         logger.warning("Per-pod bastion overrides must be a JSON object.")
         return {}
 
-    mapping: Dict[int, Dict[str, str]] = {}
+    mapping: dict[int, dict[str, str]] = {}
     for key, value in payload.items():
         try:
             pod_id = int(key)
@@ -221,9 +230,12 @@ def _safe_load_overrides(raw_text: Optional[str]) -> Dict[int, Dict[str, str]]:
             logger.warning("Ignoring override with non-integer key: %s", key)
             continue
         if not isinstance(value, dict):
-            logger.warning("Ignoring override for pod %s: payload is not an object", key)
+            logger.warning(
+                "Ignoring override for pod %s: payload is not an object",
+                key,
+            )
             continue
-        sanitized: Dict[str, str] = {}
+        sanitized: dict[str, str] = {}
         for field in (
             "host",
             "username",
@@ -237,7 +249,9 @@ def _safe_load_overrides(raw_text: Optional[str]) -> Dict[int, Dict[str, str]]:
                 continue
             if not isinstance(current, str):
                 logger.warning(
-                    "Ignoring non-string override for pod %s field %s", key, field
+                    "Ignoring non-string override for pod %s field %s",
+                    key,
+                    field,
                 )
                 continue
             sanitized[field] = current
@@ -246,20 +260,21 @@ def _safe_load_overrides(raw_text: Optional[str]) -> Dict[int, Dict[str, str]]:
 
 
 def _parse_bastion_overrides(
-    raw_text: Optional[str], error_cls
-) -> Dict[int, Dict[str, str]]:
+    raw_text: str | None,
+    error_cls,
+) -> dict[int, dict[str, str]]:
     if not raw_text or not raw_text.strip():
         return {}
     try:
         payload = json.loads(raw_text)
     except json.JSONDecodeError as exc:
         raise error_cls(
-            f"Invalid JSON for per-pod bastion overrides: {exc.msg}"
+            f"Invalid JSON for per-pod bastion overrides: {exc.msg}",
         ) from exc
     if not isinstance(payload, dict):
         raise error_cls("Per-pod bastion overrides must be a JSON object.")
 
-    mapping: Dict[int, Dict[str, str]] = {}
+    mapping: dict[int, dict[str, str]] = {}
     for key, value in payload.items():
         try:
             pod_id = int(key)
@@ -267,7 +282,7 @@ def _parse_bastion_overrides(
             raise error_cls(f"Override key '{key}' is not a valid integer pod id.")
         if not isinstance(value, dict):
             raise error_cls(f"Override for pod {pod_id} must be a JSON object.")
-        sanitized: Dict[str, str] = {}
+        sanitized: dict[str, str] = {}
         for field in (
             "host",
             "username",
@@ -281,14 +296,14 @@ def _parse_bastion_overrides(
                 continue
             if not isinstance(current, str):
                 raise error_cls(
-                    f"Override field '{field}' for pod {pod_id} must be a string."
+                    f"Override field '{field}' for pod {pod_id} must be a string.",
                 )
             sanitized[field] = current
         mapping[pod_id] = sanitized
     return mapping
 
 
-def _parse_timeout(value: Optional[str], error_cls) -> int:
+def _parse_timeout(value: str | None, error_cls) -> int:
     if value in (None, ""):
         return DEFAULT_TIMEOUT
     try:
@@ -300,16 +315,20 @@ def _parse_timeout(value: Optional[str], error_cls) -> int:
     return parsed
 
 
-def _normalize_field(text: Optional[str]) -> str:
+def _normalize_field(text: str | None) -> str:
     return (text or "").strip()
 
 
 SUPPORTED_FLAG_TYPES = {"static", "pod_specific"}
 
+
 def _clean_payload(
-    data, error_cls, *, existing: Optional[SshPingChallengeModel] = None
+    data,
+    error_cls,
+    *,
+    existing: SshPingChallengeModel | None = None,
 ):
-    cleaned: Dict[str, object] = dict(data)
+    cleaned: dict[str, object] = dict(data)
 
     raw_overrides = data.get("per_pod_bastion_overrides")
     if raw_overrides is None:
@@ -319,7 +338,10 @@ def _clean_payload(
     else:
         overrides = _parse_bastion_overrides(raw_overrides, error_cls)
         cleaned["per_pod_bastion_overrides"] = (
-            json.dumps({str(k): v for k, v in sorted(overrides.items())}, sort_keys=True)
+            json.dumps(
+                {str(k): v for k, v in sorted(overrides.items())},
+                sort_keys=True,
+            )
             if overrides
             else ""
         )
@@ -365,7 +387,8 @@ def _clean_payload(
 
 
 def _apply_bastion_fields(
-    challenge: SshPingChallengeModel, data: Dict[str, object]
+    challenge: SshPingChallengeModel,
+    data: dict[str, object],
 ) -> None:
     updated = False
     for field in (
@@ -432,7 +455,7 @@ class SshPingChallengeType(BaseChallenge):
                 "per_pod_bastion_overrides": challenge.pretty_bastion_overrides,
                 "ping_command_template": challenge.ping_command_template,
                 "ssh_timeout": challenge.ssh_timeout,
-            }
+            },
         )
         return data
 
@@ -440,7 +463,9 @@ class SshPingChallengeType(BaseChallenge):
     def update(cls, challenge, request):
         data = request.form or request.get_json() or {}
         cleaned = _clean_payload(
-            dict(data), ChallengeUpdateException, existing=challenge
+            dict(data),
+            ChallengeUpdateException,
+            existing=challenge,
         )
 
         class _Payload:
@@ -511,7 +536,9 @@ class SshPingChallengeType(BaseChallenge):
 
 
 def resolve_bastion_config(
-    challenge: SshPingChallengeModel, pod_id: int, target: str
+    challenge: SshPingChallengeModel,
+    pod_id: int,
+    target: str,
 ) -> BastionConfig:
     """Resolve the bastion login details and ping command for *pod_id*.
 
@@ -531,13 +558,13 @@ def resolve_bastion_config(
 
     host = _normalize_field(overrides.get("host") or defaults.get("host"))
     username = _normalize_field(
-        overrides.get("username") or defaults.get("username")
+        overrides.get("username") or defaults.get("username"),
     )
     password = _normalize_field(
-        overrides.get("password") or defaults.get("password")
+        overrides.get("password") or defaults.get("password"),
     )
     enable = _normalize_field(
-        overrides.get("enable_password") or defaults.get("enable_password")
+        overrides.get("enable_password") or defaults.get("enable_password"),
     )
 
     host = substitute_pod_tokens(host, pod_id)
@@ -546,7 +573,7 @@ def resolve_bastion_config(
     enable = substitute_pod_tokens(enable, pod_id) if enable else ""
 
     display_name = _normalize_field(
-        overrides.get("display_name") or defaults.get("display_name")
+        overrides.get("display_name") or defaults.get("display_name"),
     )
     display_name = substitute_pod_tokens(display_name, pod_id) if display_name else ""
 
@@ -558,13 +585,11 @@ def resolve_bastion_config(
             bool(username),
         )
         raise ValueError(
-            "Bastion host, username, and password must all be provided."
+            "Bastion host, username, and password must all be provided.",
         )
 
     command_template = (
-        overrides.get("command")
-        or defaults.get("command")
-        or DEFAULT_PING_COMMAND
+        overrides.get("command") or defaults.get("command") or DEFAULT_PING_COMMAND
     )
     command_template = substitute_pod_tokens(command_template, pod_id)
     try:
@@ -585,7 +610,6 @@ def resolve_bastion_config(
 
 def execute_ping(config: BastionConfig, timeout: int) -> str:
     """Execute the configured ping command via Netmiko."""
-
     device_params = {
         "device_type": "cisco_xe",
         "host": config.host,
@@ -619,9 +643,8 @@ def execute_ping(config: BastionConfig, timeout: int) -> str:
     return output
 
 
-def interpret_ping_output(output: str) -> (bool, Optional[float], str):
+def interpret_ping_output(output: str) -> tuple[bool, float | None, str]:
     """Determine whether the ping succeeded and extract latency if present."""
-
     match = PING_SUCCESS_PATTERN.search(output)
     if match:
         percent = int(match.group(1))
@@ -663,5 +686,6 @@ def load(app):
     upgrade()
     CHALLENGE_CLASSES[SshPingChallengeType.id] = SshPingChallengeType
     register_plugin_assets_directory(
-        app, base_path="/plugins/CTFd_ssh_ping_challenges/assets/"
+        app,
+        base_path="/plugins/CTFd_ssh_ping_challenges/assets/",
     )
