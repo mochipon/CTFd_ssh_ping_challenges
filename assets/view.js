@@ -41,11 +41,11 @@ CTFd.plugin.run(_CTFd => {
 
   const format = (str, ...args) => {
     for (const [i, arg] of args.entries()) {
-      const regExp = new RegExp(`\\{${i}\\}`, 'g')
-      str = str.replace(regExp, arg)
+      const regExp = new RegExp(`\\{${i}\\}`, 'g');
+      str = str.replace(regExp, arg);
     }
-    return str
-  }
+    return str;
+  };
 
   // --- Async: only used during initialization or explicit fetch, not during rendering ---
   const fetchCTFdUserLanguage = async () => {
@@ -78,17 +78,15 @@ CTFd.plugin.run(_CTFd => {
   // --- i18n dictionary ------------------------------------------------------
   const translations = {
     en: {
-      banner: "This challenge will attempt to ping {0}.",
-      bannerMissing: "No pod has been assigned to your team yet.",
-      inputWithSource: "Attempting ping to {0} from {1}",
-      inputMissing: "Attempting ping to unassigned host",
+      resolved: "This challenge will attempt to ping <code>{0}</code> from <code>{1}</code>.",
+      unassigned: "No pod has been assigned to your team yet. Please contact the administrators.",
+      inputUnassigned: "Unable to attempt ping as target is unknown. Please contact the administrators.",
       button: "Run",
     },
     ja: {
-      banner: "この課題を達成するには {0} に ping できる必要があります。",
-      bannerMissing: "あなたのチームには Pod がまだ割り当てられていません。",
-      inputWithSource: "{1} から {0} への ping",
-      inputMissing: "送信先が割り当てられていません",
+      resolved: "この課題は <code>{1}</code> から <code>{0}</code> へ ping を実行します。",
+      unassigned: "あなたのチームには Pod がまだ割り当てられていません。管理者に連絡してください。",
+      inputUnassigned: "宛先が不明なので実行することができません。管理者に連絡してください。",
       button: "実行",
     },
   };
@@ -102,7 +100,6 @@ CTFd.plugin.run(_CTFd => {
     const short = lang.toLowerCase().split('-')[0]; // e.g., "ja-JP" -> "ja"
     return supported.has(short) ? short : 'en';
   };
-
 
   const detectLanguage = async () => {
     const userLocale = await fetchCTFdUserLanguage();
@@ -136,28 +133,38 @@ CTFd.plugin.run(_CTFd => {
   };
 
   const applyTranslations = () => {
-    const banner = document.getElementById("ssh-ping-target");
-    const input = document.getElementById("challenge-input");
-    const button = document.getElementById("challenge-submit");
-    if (!banner || !input || !button) return;
+    const infoEl = document.getElementById("ssh-ping-target-info");
+    if (infoEl) {
+      const resolved = infoEl.getAttribute("data-resolved") || "";
+      const bastion = infoEl.getAttribute("data-bastion") || "";
 
-    const hasTarget = banner.getAttribute("data-has-target") === "true";
-    const resolved = banner.getAttribute("data-resolved") || "";
-    const bastion = banner.getAttribute("data-bastion") || "";
-
-    if (hasTarget && resolved) {
-      banner.textContent = format(translate('banner'), resolved);
-      input.value = format(translate('inputWithSource'), resolved, bastion);
-    } else {
-      banner.textContent = translate('bannerMissing');
-      input.value = translate('inputMissing');
+      if (resolved && bastion) {
+        infoEl.innerHTML = format(translate("resolved"), resolved, bastion);
+      } else {
+        infoEl.innerHTML = translate("unassigned");
+      }
     }
 
-    button.textContent = translate('button');
+    const inputEl = document.getElementById("challenge-input");
+    if (inputEl) {
+      const resolved = inputEl.getAttribute("data-resolved") || "";
+      const bastion = inputEl.getAttribute("data-bastion") || "";
+
+      if (resolved && bastion) {
+        // keeping the input value as is
+      } else {
+        inputEl.value = translate("inputUnassigned");
+      }
+    }
+
+    const buttonEl = document.getElementById("challenge-submit");
+    if (buttonEl) {
+      buttonEl.textContent = translate("button");
+    }
   };
 
   // Expose a synchronous API to the page
-  window.LabPods = Object.assign(window.LabPods || {}, {
+  window.SshPingChallenges = Object.assign(window.SshPingChallenges || {}, {
     setLanguage: (lang) => {
       selectedLang = normalizeLang(lang);
       langResolved = true;

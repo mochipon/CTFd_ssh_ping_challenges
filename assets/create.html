@@ -5,7 +5,7 @@
   <p class="mb-1">
     Configure a Cisco IOS XE bastion that CTFd will SSH into before issuing a <code>ping</code> command.
   </p>
-  <p class="mb-0">
+  <p class="mb-2">
     Set the default target address via the static flag after creation. The flag content may contain <code>:pod_id:</code>
     tokens which will be replaced with the team's pod id.
   </p>
@@ -14,20 +14,26 @@
 
 {% block message %}
 <div class="form-group">
-    <label>
-        Message:<br>
+    <label for="new-desc-editor">
+        Challenge Description:
         <small class="form-text text-muted">
-            Use markdown to describe the challenge. Include <code>:pod_id:</code> to insert the
-            assigned pod number for each team.
+            Use Markdown to describe the challenge. Include <code>:pod_id:</code> tokens to dynamically
+            insert the assigned pod number for each team. The description will be rendered with
+            team-specific pod information when viewed by participants.
         </small>
     </label>
-    <textarea id="new-desc-editor" class="form-control markdown" name="description" rows="10"></textarea>
+    <textarea
+        id="new-desc-editor"
+        class="form-control markdown"
+        name="description"
+        rows="10"
+    ></textarea>
 </div>
 {% endblock %}
 
 {% block value %}
 <div class="form-group">
-  <label>
+  <label for="value">
     Value:<br>
     <small class="form-text text-muted">
       This is how many points are rewarded for solving this challenge.
@@ -39,7 +45,7 @@
 <hr>
 
 <div class="form-group">
-  <label>
+  <label for="bastion_host_template">
     Bastion Host Template<br>
     <small class="form-text text-muted">
       Hostname or IP of the IOS XE device. Supports <code>:pod_id:</code> substitution per team.
@@ -49,7 +55,7 @@
 </div>
 
 <div class="form-group">
-  <label>
+  <label for="bastion_username_template">
     Bastion Username Template<br>
     <small class="form-text text-muted">
       SSH username for the bastion. Supports <code>:pod_id:</code> substitution.
@@ -59,7 +65,7 @@
 </div>
 
 <div class="form-group">
-  <label>
+  <label for="bastion_password_template">
     Bastion Password Template<br>
     <small class="form-text text-muted">
       SSH password for the bastion. Supports <code>:pod_id:</code> substitution.
@@ -69,7 +75,7 @@
 </div>
 
 <div class="form-group">
-  <label>
+  <label for="bastion_enable_password_template">
     Enable Password Template (Optional)<br>
     <small class="form-text text-muted">
       Provide an enable password when the device requires privilege escalation. Leave blank if not needed.
@@ -79,7 +85,7 @@
 </div>
 
 <div class="form-group">
-  <label>
+  <label for="bastion_display_name_template">
     Bastion Display Name Template (Optional)<br>
     <small class="form-text text-muted">
       Friendly identifier shown to competitors (for example <code>R3</code>). Supports <code>:pod_id:</code> tokens and defaults to the host address.
@@ -89,34 +95,23 @@
 </div>
 
 <div class="form-group">
-  <label>
+  <label for="ping_command_template">
     Ping Command Template<br>
     <small class="form-text text-muted">
       Command executed after login. <code>{target}</code> will be replaced by the resolved destination host.
     </small>
   </label>
-  <input type="text" class="form-control" name="ping_command_template" value="ping {target} repeat 1 timeout 2">
+  <input type="text" class="form-control" name="ping_command_template" placeholder="{{ SSH_PING_DEFAULT_COMMAND }}">
 </div>
 
 <div class="form-group">
-  <label>
-    Per-Pod Bastion Overrides (JSON)<br>
-    <small class="form-text text-muted">
-      Optional JSON object keyed by pod id to override any of the fields above. Example:
-      <pre class="mb-0">{ "1": { "host": "10.1.0.254", "username": "pod1", "password": "secret1", "display_name": "R3" } }</pre>
-    </small>
-  </label>
-  <textarea class="form-control" name="per_pod_bastion_overrides" rows="6" placeholder="{&#10;  &quot;1&quot;: { &quot;host&quot;: &quot;10.1.0.254&quot;, &quot;username&quot;: &quot;pod1&quot;, &quot;password&quot;: &quot;secret1&quot; }&#10;}"></textarea>
-</div>
-
-<div class="form-group">
-  <label>
+  <label for="ssh_timeout">
     SSH Timeout (seconds)<br>
     <small class="form-text text-muted">
       Maximum time to wait for connection and command completion.
     </small>
   </label>
-  <input type="number" class="form-control" name="ssh_timeout" value="10" min="1">
+  <input type="number" class="form-control" name="ssh_timeout" placeholder="{{ SSH_PING_DEFAULT_TIMEOUT }}" min="1">
 </div>
 {% endblock %}
 

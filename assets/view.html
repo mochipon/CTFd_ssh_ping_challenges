@@ -1,20 +1,19 @@
 {% extends "challenge.html" %}
 {% set resolved_target = challenge.resolved_target %}
 {% set resolved_bastion = challenge.resolved_bastion_name %}
+{% set resolved_bastion_command = challenge.resolved_bastion_command %}
 
 {% block description %}
 <div
-  id="ssh-ping-target"
   class="alert alert-info"
   role="alert"
-  data-has-target="{{ 'true' if resolved_target else 'false' }}"
-  data-resolved="{{ resolved_target or '' }}"
-  data-bastion="{{ resolved_bastion or '' }}"
 >
-  {% if resolved_target %}
-    This challenge will attempt to reach {{ resolved_target }}.
+  {% if resolved_target and resolved_bastion %}
+    <p id="ssh-ping-target-info" data-resolved="{{ resolved_target }}" data-bastion="{{ resolved_bastion }}">
+      This challenge will attempt to reach {{ resolved_target }} from {{ resolved_bastion }}.
+    </p>
   {% else %}
-    No pod has been assigned to your team yet.
+    <p id="ssh-ping-target-info">No pod has been assigned to your team yet.</p>
   {% endif %}
 </div>
 {{ super() }}
@@ -28,12 +27,14 @@
   <input
     id="challenge-input" class="challenge-input form-control"
     type="text" name="submission"
-    data-has-target="{{ 'true' if resolved_target else 'false' }}"
     data-resolved="{{ resolved_target or '' }}"
     data-bastion="{{ resolved_bastion or '' }}"
-    value="Attempting ping to {{ resolved_target or 'unassigned host' }}"
-    disabled
-  >
+    value="{% if resolved_bastion and resolved_bastion_command %}
+      {{ resolved_bastion }}$ {{ resolved_bastion_command }}
+    {% else %}
+      Unable to attempt ping as target is unknown. Please contact the administrators.
+    {% endif %}" readonly
+    disabled>
 {% endblock %}
 
 {% block submit %}
@@ -41,8 +42,8 @@
       id="challenge-submit"
       class="challenge-submit btn btn-outline-secondary w-100 h-100" type="submit"
       @click.debounce.500ms="submitChallenge()"
-      data-i18n="button"
+      {% if not resolved_bastion %}disabled title="Pod assignment required"{% endif %}
   >
-    Run SSH Ping
+    Run
   </button>
 {% endblock %}
